@@ -9,6 +9,7 @@
 #import "NYTPhotoViewController.h"
 #import "NYTPhoto.h"
 #import "NYTScalingImageView.h"
+#import "NSBundle+NYTPhotoViewer.h"
 
 #ifdef ANIMATED_GIF_SUPPORT
 #import <FLAnimatedImage/FLAnimatedImage.h>
@@ -27,7 +28,7 @@ NSString * const NYTPhotoViewControllerPhotoImageUpdatedNotification = @"NYTPhot
 @property (nonatomic) NSNotificationCenter *notificationCenter;
 @property (nonatomic) UITapGestureRecognizer *doubleTapGestureRecognizer;
 @property (nonatomic) UILongPressGestureRecognizer *longPressGestureRecognizer;
-
+@property (nonatomic) UIButton *locationBtn;
 @end
 
 @implementation NYTPhotoViewController
@@ -48,11 +49,11 @@ NSString * const NYTPhotoViewControllerPhotoImageUpdatedNotification = @"NYTPhot
 
 - (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super initWithCoder:aDecoder];
-
+    
     if (self) {
         [self commonInitWithPhoto:nil loadingView:nil notificationCenter:nil];
     }
-
+    
     return self;
 }
 
@@ -69,6 +70,18 @@ NSString * const NYTPhotoViewControllerPhotoImageUpdatedNotification = @"NYTPhot
     
     [self.view addGestureRecognizer:self.doubleTapGestureRecognizer];
     [self.view addGestureRecognizer:self.longPressGestureRecognizer];
+    
+    if (!_locationBtn){
+        _locationBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        [_locationBtn setImage:[UIImage imageNamed:@"PhotoLocationBtnIcon" inBundle:[NSBundle nyt_photoViewerResourceBundle] compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
+        _locationBtn.titleLabel.numberOfLines = 0;
+        [_locationBtn setTitleEdgeInsets:UIEdgeInsetsMake(0, 10, 0, 0)];
+        _locationBtn.hidden = YES;
+    }
+    [_locationBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    if (![self.view.subviews containsObject:self.locationBtn]){
+        [self.view addSubview:self.locationBtn];
+    }
 }
 
 - (void)viewWillLayoutSubviews {
@@ -80,8 +93,18 @@ NSString * const NYTPhotoViewControllerPhotoImageUpdatedNotification = @"NYTPhot
     self.loadingView.center = CGPointMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds));
 }
 
-- (BOOL)prefersHomeIndicatorAutoHidden {
-    return YES;
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    
+    _locationBtn.frame = CGRectMake(0, CGRectGetMaxY(self.view.frame)-(CGRectGetMaxY(self.view.frame)-CGRectGetWidth(self.view.frame))/2+20, CGRectGetWidth(self.view.frame), 40);
+    [_locationBtn addTarget:self action:@selector(locationBtnDidTap:) forControlEvents:UIControlEventTouchUpInside];
+    
+}
+
+- (void)locationBtnDidTap:(id)sender {
+    if([self.photo respondsToSelector:@selector(mapViewContrller)]){
+        [self presentViewController:self.photo.mapViewContrller animated:YES completion:nil];
+    }
 }
 
 #pragma mark - NYTPhotoViewController
@@ -89,6 +112,20 @@ NSString * const NYTPhotoViewControllerPhotoImageUpdatedNotification = @"NYTPhot
 - (instancetype)initWithPhoto:(id <NYTPhoto>)photo loadingView:(UIView *)loadingView notificationCenter:(NSNotificationCenter *)notificationCenter {
     self = [super initWithNibName:nil bundle:nil];
     
+    if ([photo respondsToSelector:@selector(setGpsCallBack:)]) {
+        __weak NYTPhotoViewController *weakSelf = self;
+        [photo setGpsCallBack:^(CLLocation * _Nonnull location, NSString * _Nonnull name) {
+            if (location==nil && name==nil) {
+                weakSelf.locationBtn.hidden = YES;
+            }else {
+                weakSelf.locationBtn.hidden = NO;
+                [weakSelf.locationBtn setTitle:name forState:UIControlStateNormal];
+                weakSelf.locationBtn.enabled = location!=nil;
+            }
+        }];
+    }else {
+        self.locationBtn.hidden = YES;
+    }
     if (self) {
         [self commonInitWithPhoto:photo loadingView:loadingView notificationCenter:notificationCenter];
     }
@@ -112,9 +149,9 @@ NSString * const NYTPhotoViewControllerPhotoImageUpdatedNotification = @"NYTPhot
     }
     
     _scalingImageView.delegate = self;
-
+    
     _notificationCenter = notificationCenter;
-
+    
     [self setupGestureRecognizers];
 }
 
@@ -162,7 +199,7 @@ NSString * const NYTPhotoViewControllerPhotoImageUpdatedNotification = @"NYTPhot
     CGPoint pointInView = [recognizer locationInView:self.scalingImageView.imageView];
     
     CGFloat newZoomScale = self.scalingImageView.maximumZoomScale;
-
+    
     if (self.scalingImageView.zoomScale >= self.scalingImageView.maximumZoomScale
         || ABS(self.scalingImageView.zoomScale - self.scalingImageView.maximumZoomScale) <= 0.01) {
         newZoomScale = self.scalingImageView.minimumZoomScale;

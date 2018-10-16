@@ -57,6 +57,10 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, readonly, nullable) NSAttributedString *attributedCaptionCredit;
 
+@optional
+@property (nonatomic, copy) void(^gpsCallBack)(CLLocation * __nullable location , NSString *name);
+
+@property (nonatomic, readonly) UIViewController *mapViewContrller;
 @end
 
 NS_ASSUME_NONNULL_END
