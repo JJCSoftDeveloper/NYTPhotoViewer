@@ -8,6 +8,8 @@
 
 @import UIKit;
 
+@class CLLocation;
+
 NS_ASSUME_NONNULL_BEGIN
 
 /**
